@@ -27,12 +27,11 @@ import jchip8br.util.LoggerManager;
  */
 public class Engine {
 
-    //private int widhtSchip = 128,  heigthSchip = 64;
-    private int widhtSchip = 138,  heigthSchip = 74;
-    private int widhtChip = 64,  heigthChip = 32;
-    private int xboundary = widhtChip,  yboundary = heigthChip;
+    private int widthSchip = 138,  heightSchip = 74;
+    private int widthChip = 64,  heightChip = 32;
+    private int xboundary = widthChip,  yboundary = heightChip;
     private int pixelsToShift = 2;
-    private int[][] vram = new int[widhtChip][heigthChip];
+    private int[][] vram = new int[widthChip][heightChip];
     private final Graphics video;
     private final Processor cpu;
     private static Logger log = LoggerManager.getEngineLogger();
@@ -41,7 +40,7 @@ public class Engine {
     public static String pixelShape = "Rectangle filled";
     private int bitsWide = 8;
     public static int justDrawAtFrame = 1;
-    public static int callingNumber = 3;
+    public static int callingNumber = 1;
 
     public Engine(Graphics place, Processor processor) {
         video = place;
@@ -130,7 +129,7 @@ public class Engine {
         return vram;
     }
 
-    public void scroll4PixelsToLeft() {
+    public void scroll4PixelsLeft() {
         log.debug("scroll left " + pixelsToShift);
         int[][] newvram = new int[xboundary][yboundary];
         for (int y = 0; y < yboundary; y++) {
@@ -153,7 +152,7 @@ public class Engine {
         vram = newvram;
     }
 
-    public void scroll4PixelsToRigth() {
+    public void scroll4PixelsRight() {
         log.debug("scroll right " + pixelsToShift);
         int[][] newvram = new int[xboundary][yboundary];
         for (int y = 0; y < yboundary; y++) {
@@ -193,18 +192,18 @@ public class Engine {
     }
 
     public void setHighGraphics() {
-        vram = new int[widhtSchip][heigthSchip];
-        xboundary = widhtSchip;
-        yboundary = heigthSchip;
+        vram = new int[widthSchip][heightSchip];
+        xboundary = widthSchip;
+        yboundary = heightSchip;
         pixelsToShift = 0x4;
         bitsWide = 16;
         clearScreen();
     }
 
     public void setLowGraphics() {
-        vram = new int[widhtChip][heigthChip];
-        xboundary = widhtChip;
-        yboundary = heigthChip;
+        vram = new int[widthChip][heightChip];
+        xboundary = widthChip;
+        yboundary = heightChip;
         pixelsToShift = 0x2;
         bitsWide = 8;
         clearScreen();

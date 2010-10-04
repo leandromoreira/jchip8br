@@ -16,6 +16,17 @@ along with JChip8BR.  If not, see <http://www.gnu.org/licenses/>.
  */
 package jchip8br.gui;
 
+import java.awt.Color;
+import java.awt.Point;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.JTextArea;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.DefaultHighlighter;
+import javax.swing.text.DefaultHighlighter.DefaultHighlightPainter;
+import javax.swing.text.Highlighter;
+import javax.swing.text.Highlighter.Highlight;
+import jchip8br.core.Breakpoint;
 import jchip8br.core.Disassembler;
 import jchip8br.core.Emulator;
 
@@ -25,14 +36,19 @@ import jchip8br.core.Emulator;
 public class WindowDisassembler extends javax.swing.JFrame {
 
     private Emulator emulator;
+    private Highlighter assemblerHighlighter;
+    private DefaultHighlightPainter defaultHighLighter = new DefaultHighlighter.DefaultHighlightPainter(new Color(120,0,0));
 
     /** Creates new form Dissambler */
     public WindowDisassembler() {
         initComponents();
     }
 
-    void setEmulator(Emulator emulator) {
+    void setEmulator(Emulator emulator)
+    {
         this.emulator = emulator;
+        assemblerHighlighter = jTxtAssemblerDavidWinter.getHighlighter();
+        //h.addHighlight(j, j+1, new DefaultHighlighter.DefaultHighlightPainter(new Color(120,0,0)));
     }
 
     /** This method is called from within the constructor to
@@ -59,8 +75,16 @@ public class WindowDisassembler extends javax.swing.JFrame {
 
         jTxtAssemblerDavidWinter.setBackground(new java.awt.Color(0, 0, 0));
         jTxtAssemblerDavidWinter.setColumns(20);
+        jTxtAssemblerDavidWinter.setEditable(false);
         jTxtAssemblerDavidWinter.setForeground(new java.awt.Color(0, 255, 0));
         jTxtAssemblerDavidWinter.setRows(5);
+        jTxtAssemblerDavidWinter.setSelectedTextColor(new java.awt.Color(0, 255, 0));
+        jTxtAssemblerDavidWinter.setSelectionColor(new java.awt.Color(0, 0, 0));
+        jTxtAssemblerDavidWinter.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                jTxtAssemblerDavidWinterMouseClicked(evt);
+            }
+        });
         jScrollPane1.setViewportView(jTxtAssemblerDavidWinter);
 
         jTxtAssemblerMichaelToren.setBackground(new java.awt.Color(0, 0, 0));
@@ -96,11 +120,93 @@ public class WindowDisassembler extends javax.swing.JFrame {
     private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
         Disassembler disassembler = new Disassembler();
         jTxtAssemblerDavidWinter.setText(disassembler.assemblerFromDavidWinter(emulator.getMemory()));
+        //HighlightBreakpoints();
         jTxtAssemblerMichaelToren.setText(disassembler.assemblerFromMichaelToren(emulator.getMemory()));
         jTxtAssemblerDavidWinter.setCaretPosition(0);
         jTxtAssemblerMichaelToren.setCaretPosition(0);
     }//GEN-LAST:event_formWindowOpened
 
+    public Highlight AddHighlight(Point p) throws BadLocationException
+    {
+        Highlight tag = (Highlight)assemblerHighlighter.addHighlight(p.x, p.x+p.y, defaultHighLighter);
+        return tag;
+    }
+
+    public void RemoveHighlight(Breakpoint breakpoint)
+    {
+        assemblerHighlighter.removeHighlight(breakpoint.Highlight());
+    }
+
+/*
+    private void HighlightBreakpoints()
+    {
+        String charsToHighlight = "aeiouAEIOU";
+        Highlighter h = jTxtAssemblerDavidWinter.getHighlighter();
+        h.removeAllHighlights();
+        String text = jTxtAssemblerDavidWinter.getText().toUpperCase();
+
+        for (int j = 0; j < text.length(); j += 1)
+        {
+          char ch = text.charAt(j);
+          if (charsToHighlight.indexOf(ch) >= 0)
+            try
+            {
+                h.addHighlight(j, j+1, new DefaultHighlighter.DefaultHighlightPainter(new Color(120,0,0)));
+              //h.addHighlight(j, j + 1, DefaultHighlighter.DefaultPainter);
+            } catch (BadLocationException ble) {}
+        }
+    }
+*/
+    
+    private void jTxtAssemblerDavidWinterMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jTxtAssemblerDavidWinterMouseClicked
+       // start with looking for double-click
+        int buttonPressed = evt.getButton();
+        int numOfClicks = evt.getClickCount();
+       
+        if(buttonPressed == 1 && numOfClicks == 2) //Left button double-click
+        {
+            try //Left button double-click
+            {
+                JTextArea area = (JTextArea) evt.getComponent();
+                int line = GetCurrentLine(area);
+                Point p = GetLinePositionInfo(area, line);
+                String currentLine = "";
+                try {
+                    currentLine = area.getText(area.getLineStartOffset(line), area.getLineEndOffset(line) - area.getLineStartOffset(line));
+                   
+                } catch (BadLocationException ex) {
+                    Logger.getLogger(WindowDisassembler.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                int address = Integer.valueOf(currentLine.substring(2, 6), 16);
+                if(Emulator.hasBreakpoint(address))
+                {
+                    Breakpoint breakPoint = Emulator.GetBreakpoint(address);
+                    RemoveHighlight(breakPoint);
+                    Emulator.ToggleBreakpoint(address);
+                }
+                else
+                {
+                    Emulator.ToggleBreakpoint(address);
+                    Breakpoint breakPoint = Emulator.GetBreakpoint(address);
+                    breakPoint.SetHighlight(AddHighlight(p));
+                }  
+                 area.select(area.getLineStartOffset(line), area.getLineStartOffset(line)); // to correct drawing of highlighting
+                
+            } catch (BadLocationException ex) {
+                Logger.getLogger(WindowDisassembler.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }//GEN-LAST:event_jTxtAssemblerDavidWinterMouseClicked
+
+    private int GetCurrentLine(JTextArea area) throws BadLocationException
+    {
+        return area.getLineOfOffset(area.getCaretPosition());
+    }
+    private Point GetLinePositionInfo(JTextArea area, int line) throws BadLocationException
+    {
+       return new Point(area.getLineStartOffset(line), area.getLineEndOffset(line) - area.getLineStartOffset(line));
+    }
+ 
     /**
      * @param args the command line arguments
      */
@@ -120,4 +226,7 @@ public class WindowDisassembler extends javax.swing.JFrame {
     private javax.swing.JTextArea jTxtAssemblerDavidWinter;
     private javax.swing.JTextArea jTxtAssemblerMichaelToren;
     // End of variables declaration//GEN-END:variables
+
+
+
 }

@@ -26,7 +26,7 @@ public class Util {
     public static short readUnsignedByte(ByteBuffer readbuffer){
         return (short) (readbuffer.get() & 0xff);
     }
-    public static short readUnsignedByte(byte value){
+    public static short readUnsignedByte(short value){
         return (short) (value & 0xff);
     }
     public static String fillIfNeedsWith(int times,String word,String value){
@@ -35,5 +35,33 @@ public class Util {
             value = word + value;
         }
         return value;
+    }
+
+    public static String appendSpacesToEnd(String originalString, int makeLength)
+    {
+        StringBuilder opcodeEndingSpaces = new StringBuilder(originalString);
+        String spaces = "          ";
+        opcodeEndingSpaces.append(spaces.substring(0, makeLength-opcodeEndingSpaces.length()-1));
+        return opcodeEndingSpaces.toString();
+    }
+
+    public static String FormatHexAdress(int address, boolean leading0X)
+    {
+        return FormatHexNumber(3,address,leading0X);
+    }
+
+    public static String FormatHexValue(int value, boolean leading0X)
+    {
+        return  FormatHexNumber(2,value,leading0X);
+    }
+    
+    public static String FormatHexNumber(int digitsShown, int value, boolean leading0X)
+    {
+        StringBuilder sb = new StringBuilder();
+        if(leading0X)
+            sb.append("0x");
+
+        sb.append(fillIfNeedsWith(digitsShown, "0", Integer.toHexString(value).toUpperCase()));
+        return sb.toString();
     }
 }

@@ -17,6 +17,8 @@ along with JChip8BR.  If not, see <http://www.gnu.org/licenses/>.
 package jchip8br.core;
 
 import java.util.Random;
+import java.util.logging.Level;
+import javax.rmi.CORBA.Util;
 import jchip8br.control.Controller;
 import jchip8br.util.Logger;
 import jchip8br.util.LoggerManager;
@@ -47,14 +49,16 @@ public class Processor {
         init();
     }
 
-    public void reset() {
+    public void reset(boolean doMemClear) {
         init();
-        memory.clear();
+
+        if(doMemClear)
+            memory.clear();
     }
 
     private void fillCharacter() {
         //0 SPRITE
-        memory.writeAt(0x000, (short) 0xF0);
+        memory.writeAt(0x000, (short)0xF0);
         memory.writeAt(0x001, (short) 0x90);
         memory.writeAt(0x002, (short) 0x90);
         memory.writeAt(0x003, (short) 0x90);
@@ -331,11 +335,21 @@ public class Processor {
         memory.writeAt(xfontChip8++, (short) Integer.parseInt("11100000", 2));
     }
 
+    private void ClearStack() {
+        for (int i=0;i<stack.length;i++)
+            stack[i] = 0x0000;
+    }
+
+
     private void init() {
         programCounter = 0x200;
         stackPointer = 0x00;
+        // for visual clarity, also fill stack with zeros
+        ClearStack();
         delayTimerDT = 0x00;
         soundTimerST = 0x00;
+        addressRegisterI = 0x00;
+        dataRegister.Clear();
         fillCharacter();
     }
     private String actualLine = "";
@@ -344,10 +358,25 @@ public String stack() {
         StringBuilder value = new StringBuilder();
 
         for (int i = 0; i <= 15; i++) {
-            value.append(jchip8br.util.Util.fillIfNeedsWith(2, "0", String.valueOf(i + 1)) + ":0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(stack[i])).toUpperCase() + "\n");
+            value.append(jchip8br.util.Util.fillIfNeedsWith(2, "0", String.valueOf(i + 1)))
+                    .append(":0x")
+                    .append(jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(stack[i])).toUpperCase())
+                    .append("\n");
         }
 
         return value.toString();
+    }
+
+    private String RenderInstruction(int opCode)
+    {
+        // render opcode name
+        StringBuilder sb = new StringBuilder();
+        try {
+            sb.append(eInstruction.DecodeInstruction(opCode)); // uses toString implicitly
+        } catch (Exception ex) {
+            java.util.logging.Logger.getLogger(Processor.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return sb.toString();
     }
 
     public void step() {
@@ -360,20 +389,18 @@ public String stack() {
             opCode = getMemory().readFrom(programCounter++) | getMemory().readFrom(programCounter++) << 8;
         }
 
+        if (dissambler) // the rendering of the opcode is now done seperately
+            actualLine = jchip8br.util.Util.FormatHexAdress(oldPc,false) + " " + RenderInstruction(opCode);
+
+//        switch(opCode)
+//                case
+
         if (opCode == Instruction.CLS) {
-            if (dissambler) {
-                actualLine = "cls";
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             Emulator.getVideo().clearScreen();
             return;
         }
 
         if (opCode == Instruction.RET) {
-            if (dissambler) {
-                actualLine = "ret";
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             programCounter = stack[--stackPointer];
             stack[stackPointer] = 0x0;
             return;
@@ -381,10 +408,6 @@ public String stack() {
 
         if (opCode >= Instruction.JMP & opCode <= (Instruction.JMP + 0xFFF)) {
             int place = opCode & 0x0FFF;
-            if (dissambler) {
-                actualLine = "jmp 0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(place).toUpperCase());
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             programCounter = place;
             return;
         }
@@ -392,10 +415,6 @@ public String stack() {
 
         if (opCode >= Instruction.CALL & opCode <= (Instruction.CALL + 0xFFF)) {
             int place = opCode & 0x0FFF;
-            if (dissambler) {
-                actualLine = "call 0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(place).toUpperCase());
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
 
             stack[stackPointer] = (short) (programCounter);
             ++stackPointer;
@@ -407,10 +426,6 @@ public String stack() {
             int place = opCode & 0x0FFF;
             int register = place >> 8;
             int value = place & 0x0FF;
-            if (dissambler) {
-                actualLine = "se V" + Integer.toHexString(register).toUpperCase() + ", 0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(value).toUpperCase());
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
 
             if (dataRegister.V[register] == value) {
                 programCounter += 2;
@@ -423,10 +438,6 @@ public String stack() {
             int place = opCode & 0x0FFF;
             int register = place >> 8;
             int value = place & 0x0FF;
-            if (dissambler) {
-                actualLine = "sne V" + Integer.toHexString(register).toUpperCase() + ", 0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(value).toUpperCase());
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
 
             if (dataRegister.V[register] != value) {
                 programCounter += 2;
@@ -439,10 +450,6 @@ public String stack() {
             int registerX = place >> 8;
             int registerY = place >> 4 & 0x0F;
 
-            if (dissambler) {
-                actualLine = "se V" + Integer.toHexString(registerX).toUpperCase() + ", V" + Integer.toHexString(registerY).toUpperCase();
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             if (dataRegister.V[registerX] == dataRegister.V[registerY]) {
                 programCounter += 2;
             }
@@ -453,10 +460,7 @@ public String stack() {
             int place = opCode & 0x0FFF;
             int register = place >> 8;
             int value = place & 0x0FF;
-            if (dissambler) {
-                actualLine = "ld V" + Integer.toHexString(register).toUpperCase() + ", 0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(value).toUpperCase());
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
+
             dataRegister.V[register] = (short) value;
             return;
         }
@@ -465,12 +469,9 @@ public String stack() {
             int place = opCode & 0x0FFF;
             int register = place >> 8;
             int value = place & 0x0FF;
-            if (dissambler) {
-                actualLine = "add V" + Integer.toHexString(register).toUpperCase() + ", 0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(value).toUpperCase());
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
 
-            dataRegister.V[register] = jchip8br.util.Util.readUnsignedByte((byte) ((byte) value + (byte) dataRegister.V[register])); //this makes most of games works including pong
+            dataRegister.V[0xF] = (short)((value+dataRegister.V[register]>0xFF)?1:0);
+            dataRegister.V[register] = jchip8br.util.Util.readUnsignedByte((short) ((short) value + (short) dataRegister.V[register])); //this makes most of games works including pong
             //dataRegister.V[register] += (short) value; this makes the pong works
             return;
         }
@@ -480,10 +481,6 @@ public String stack() {
             int registerX = place >> 8;
             int registerY = place >> 4 & 0x0F;
 
-            if (dissambler) {
-                actualLine = "ld V" + Integer.toHexString(registerX).toUpperCase() + ", V" + Integer.toHexString(registerY).toUpperCase();
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             dataRegister.V[registerX] = dataRegister.V[registerY];
             return;
         }
@@ -494,10 +491,6 @@ public String stack() {
             int registerX = place >> 8;
             int registerY = place >> 4 & 0x0F;
 
-            if (dissambler) {
-                actualLine = "or V" + Integer.toHexString(registerX).toUpperCase() + ", V" + Integer.toHexString(registerY).toUpperCase();
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             dataRegister.V[registerX] = (short) (dataRegister.V[registerX] | dataRegister.V[registerY]);
             return;
         }
@@ -508,10 +501,6 @@ public String stack() {
             int registerX = place >> 8;
             int registerY = place >> 4 & 0x0F;
 
-            if (dissambler) {
-                actualLine = "and V" + Integer.toHexString(registerX).toUpperCase() + ", V" + Integer.toHexString(registerY).toUpperCase();
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             dataRegister.V[registerX] = (short) (dataRegister.V[registerX] & dataRegister.V[registerY]);
             return;
         }
@@ -522,10 +511,6 @@ public String stack() {
             int registerX = place >> 8;
             int registerY = place >> 4 & 0x0F;
 
-            if (dissambler) {
-                actualLine = "xor V" + Integer.toHexString(registerX).toUpperCase() + ", V" + Integer.toHexString(registerY).toUpperCase();
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             dataRegister.V[registerX] = (short) (dataRegister.V[registerX] ^ dataRegister.V[registerY]);
             return;
         }
@@ -535,16 +520,12 @@ public String stack() {
             int registerX = place >> 8;
             int registerY = place >> 4 & 0x0F;
 
-            if (dissambler) {
-                actualLine = "add V" + Integer.toHexString(registerX).toUpperCase() + ", V" + Integer.toHexString(registerY).toUpperCase();
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             if ((dataRegister.V[registerX] + dataRegister.V[registerY]) > 0xFF) {
                 dataRegister.V[0xF] = 0x1;
             } else {
                 dataRegister.V[0xF] = 0x0;
             }
-            dataRegister.V[registerX] = (short) (jchip8br.util.Util.readUnsignedByte((byte) ((byte) dataRegister.V[registerX] + (byte) dataRegister.V[registerY])) & 0xFF);
+            dataRegister.V[registerX] = (short) (jchip8br.util.Util.readUnsignedByte((short) ((short) dataRegister.V[registerX] + (short) dataRegister.V[registerY])) & 0xFF);
             //dataRegister.V[registerX] = (short) ((dataRegister.V[registerX] + dataRegister.V[registerY]) & 0xFF);
             return;
         }
@@ -554,17 +535,13 @@ public String stack() {
             int registerX = place >> 8;
             int registerY = place >> 4 & 0x0F;
 
-            if (dissambler) {
-                actualLine = "sub V" + Integer.toHexString(registerX).toUpperCase() + ", V" + Integer.toHexString(registerY).toUpperCase();
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             if (dataRegister.V[registerX] >= dataRegister.V[registerY]) { // i used to use just >
                 dataRegister.V[0xF] = 0x1;
             } else {
                 dataRegister.V[0xF] = 0x0;
             }
 
-            dataRegister.V[registerX] = (short) jchip8br.util.Util.readUnsignedByte((byte) ((byte) dataRegister.V[registerX] - (byte) dataRegister.V[registerY]));
+            dataRegister.V[registerX] = (short) jchip8br.util.Util.readUnsignedByte((short) ((short) dataRegister.V[registerX] - (short) dataRegister.V[registerY]));
             //dataRegister.V[registerX] = (short) (dataRegister.V[registerX] - dataRegister.V[registerY]);
             return;
         }
@@ -574,10 +551,6 @@ public String stack() {
             int registerX = place >> 8;
             int registerY = place >> 4 & 0x0F;
 
-            if (dissambler) {
-                actualLine = "shr V" + Integer.toHexString(registerX).toUpperCase() + " {, V" + Integer.toHexString(registerY).toUpperCase() + "}";
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             if ((dataRegister.V[registerX] & 0x1) == 0x1) {
                 dataRegister.V[0xF] = 0x1;
             } else {
@@ -592,16 +565,12 @@ public String stack() {
             int registerX = place >> 8;
             int registerY = place >> 4 & 0x0F;
 
-            if (dissambler) {
-                actualLine = "subn V" + Integer.toHexString(registerX).toUpperCase() + ", V" + Integer.toHexString(registerY).toUpperCase();
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
-            if (dataRegister.V[registerX] < dataRegister.V[registerY]) {
+            if (dataRegister.V[registerX] <= dataRegister.V[registerY]) {
                 dataRegister.V[0xF] = 0x1;
             } else {
                 dataRegister.V[0xF] = 0x0;
             }
-            dataRegister.V[registerX] = (short) jchip8br.util.Util.readUnsignedByte((byte) ((byte) dataRegister.V[registerY] - (byte) dataRegister.V[registerX]));
+            dataRegister.V[registerX] = (short) jchip8br.util.Util.readUnsignedByte((short) ((short) dataRegister.V[registerY] - (short) dataRegister.V[registerX]));
             //dataRegister.V[registerX] = (short) (dataRegister.V[registerY] - dataRegister.V[registerX]);
             return;
         }
@@ -611,16 +580,12 @@ public String stack() {
             int registerX = place >> 8;
             int registerY = place >> 4 & 0x0F;
 
-            if (dissambler) {
-                actualLine = "shl V" + Integer.toHexString(registerX).toUpperCase() + " {, V" + Integer.toHexString(registerY).toUpperCase() + "}";
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             if (dataRegister.V[registerX] >> 0x7 == 0x1) {
                 dataRegister.V[0xF] = 0x1;
             } else {
                 dataRegister.V[0xF] = 0x0;
             }
-            dataRegister.V[registerX] = (short) (dataRegister.V[registerX] << 0x1);
+            dataRegister.V[registerX] = (short) ((dataRegister.V[registerX] << 0x1) &0xFF);
             return;
         }
 
@@ -629,10 +594,6 @@ public String stack() {
             int registerX = place >> 8;
             int registerY = place >> 4 & 0x0F;
 
-            if (dissambler) {
-                actualLine = "sne V" + Integer.toHexString(registerX).toUpperCase() + " ,V" + Integer.toHexString(registerY).toUpperCase();
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             if (dataRegister.V[registerX] != dataRegister.V[registerY]) {
                 programCounter += 0x2;
             }
@@ -641,10 +602,6 @@ public String stack() {
 
         if (opCode >= Instruction.LD_1 & opCode <= (Instruction.LD_1 + 0xFFF)) {
             int place = opCode & 0x0FFF;
-            if (dissambler) {
-                actualLine = "ld I, 0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(place).toUpperCase());
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             addressRegisterI = place;
             return;
         }
@@ -652,10 +609,7 @@ public String stack() {
 
         if (opCode >= Instruction.JMP_0 & opCode <= (Instruction.JMP_0 + 0xFFF)) {
             int place = opCode & 0x0FFF;
-            if (dissambler) {
-                actualLine = "jmp V0, 0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(place).toUpperCase());
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
+
             programCounter = dataRegister.V[0x0] + place;
             return;
         }
@@ -664,10 +618,7 @@ public String stack() {
             int place = opCode & 0x0FFF;
             int register = place >> 8;
             int value = place & 0x0FF;
-            if (dissambler) {
-                actualLine = "rnd V" + Integer.toHexString(register).toUpperCase() + ", 0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(value).toUpperCase());
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
+
             dataRegister.V[register] = (short) (rnd.nextInt(0x100) & value);
             return;
         }
@@ -677,10 +628,7 @@ public String stack() {
             int x = place >> 8;
             int y = place >> 4 & 0x0F;
             int n = opCode & 0x0F;
-            if (dissambler) {
-                actualLine = "drw V" + Integer.toHexString(x).toUpperCase() + ", V" + Integer.toHexString(y).toUpperCase() + ", 0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(n).toUpperCase());
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
+
             int[] sprite = new int[n];
             int count = 0;
             for (int i = addressRegisterI; i < (addressRegisterI + n); i++) {
@@ -695,11 +643,6 @@ public String stack() {
             int place = opCode & 0x0FFF;
             int x = place >> 8;
 
-            if (dissambler) {
-                actualLine = "skp V" + Integer.toHexString(x).toUpperCase();
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
-
             if (Controller.getController().isThisKeyPressed(dataRegister.V[x])) {
                 programCounter += 0x02;
             }
@@ -710,11 +653,6 @@ public String stack() {
         if (opCode >= Instruction.SKNP & opCode <= (Instruction.SKNP + 0xFFF) & ((opCode & 0x00FF) == 0xA1)) {
             int place = opCode & 0x0FFF;
             int x = place >> 8;
-
-            if (dissambler) {
-                actualLine = "sknp V" + Integer.toHexString(x).toUpperCase();
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
 
             if (!Controller.getController().isThisKeyPressed(dataRegister.V[x])) {
                 programCounter += 0x02;
@@ -727,11 +665,6 @@ public String stack() {
             int place = opCode & 0x0FFF;
             int x = place >> 8;
 
-            if (dissambler) {
-                actualLine = "ld V" + Integer.toHexString(x).toUpperCase() + " ,DT";
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
-
             dataRegister.V[x] = (short) delayTimerDT;
             return;
         }
@@ -739,11 +672,6 @@ public String stack() {
         if (opCode >= Instruction.LD_3 & opCode <= (Instruction.LD_3 + 0xFFF) & ((opCode & 0x00FF) == 0x0A)) {
             int place = opCode & 0x0FFF;
             int x = place >> 8;
-
-            if (dissambler) {
-                actualLine = "ld V" + Integer.toHexString(x).toUpperCase() + " ,K";
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
 
             dataRegister.V[x] = (short) Controller.getController().waitingKey();
             return;
@@ -754,11 +682,6 @@ public String stack() {
             int place = opCode & 0x0FFF;
             int x = place >> 8;
 
-            if (dissambler) {
-                actualLine = "ld DT, V" + Integer.toHexString(x).toUpperCase();
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
-
             delayTimerDT = dataRegister.V[x];
             return;
         }
@@ -768,11 +691,6 @@ public String stack() {
             int place = opCode & 0x0FFF;
             int x = place >> 8;
 
-            if (dissambler) {
-                actualLine = "ld ST, V" + Integer.toHexString(x).toUpperCase();
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
-
             soundTimerST = dataRegister.V[x];
             return;
         }
@@ -781,12 +699,10 @@ public String stack() {
             int place = opCode & 0x0FFF;
             int x = place >> 8;
 
-            if (dissambler) {
-                actualLine = "add I, V" + Integer.toHexString(x).toUpperCase();
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
-
             addressRegisterI += dataRegister.V[x];
+
+            dataRegister.V[0xF] = (short)((addressRegisterI>0xFFF)?1:0);
+            addressRegisterI = addressRegisterI&0xFFF;
             return;
         }
 
@@ -794,10 +710,6 @@ public String stack() {
             int place = opCode & 0x0FFF;
             int x = place >> 8;
 
-            if (dissambler) {
-                actualLine = "ld f, V" + Integer.toHexString(x).toUpperCase();
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             addressRegisterI = MemoryMap.giveAdressFor(dataRegister.V[x]);
             return;
         }
@@ -806,10 +718,6 @@ public String stack() {
             int place = opCode & 0x0FFF;
             int x = place >> 8;
 
-            if (dissambler) {
-                actualLine = "ld b, V" + Integer.toHexString(x).toUpperCase();
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             int cent = 0, tenth = 0, unit = 0;
 
             if (dataRegister.V[x] >= 100) {
@@ -840,10 +748,6 @@ public String stack() {
             int place = opCode & 0x0FFF;
             int x = place >> 8;
 
-            if (dissambler) {
-                actualLine = "ld [I], V" + Integer.toHexString(x).toUpperCase();
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             for (int i = 0; i <= x; i++) {
                 memory.writeAt(addressRegisterI + i, dataRegister.V[i]);
             }
@@ -854,10 +758,6 @@ public String stack() {
             int place = opCode & 0x0FFF;
             int x = place >> 8;
 
-            if (dissambler) {
-                actualLine = "ld V" + Integer.toHexString(x).toUpperCase() + " ,[I]";
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             for (int i = 0; i <= x; i++) {
                 dataRegister.V[i] = memory.readFrom(addressRegisterI + i);
             }
@@ -867,10 +767,7 @@ public String stack() {
         /*schip8*/
         if (opCode >= Instruction.SCD & opCode <= (Instruction.SCD + 0xF)) {
             int lastByte = opCode & 0x00F;
-            if (dissambler) {
-                actualLine = "scd  " + Integer.toHexString(lastByte).toUpperCase();
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
+
             Emulator.getVideo().scrollDown(lastByte);
             return;
         }
@@ -879,40 +776,24 @@ public String stack() {
                 actualLine = "scr  ";
                 actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
             }
-            Emulator.getVideo().scroll4PixelsToRigth();
+            Emulator.getVideo().scroll4PixelsRight();
             return;
         }
         if (opCode == Instruction.SCL) {
-            if (dissambler) {
-                actualLine = "scl  ";
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
-            Emulator.getVideo().scroll4PixelsToLeft();
+            Emulator.getVideo().scroll4PixelsLeft();
             return;
         }
 
         if (opCode == Instruction.EXIT) {
-            if (dissambler) {
-                actualLine = "exit  ";
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             System.exit(0);
             return;
         }
 
         if (opCode == Instruction.LOW) {
-            if (dissambler) {
-                actualLine = "low  ";
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             Emulator.getVideo().setLowGraphics();
             return;
         }
         if (opCode == Instruction.HIGH) {
-            if (dissambler) {
-                actualLine = "high  ";
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             Emulator.getVideo().setHighGraphics();
             return;
         }
@@ -927,10 +808,6 @@ public String stack() {
                 n = 10; //font case are 8 x 10
             }
 
-            if (dissambler) {
-                actualLine = "drw V" + Integer.toHexString(x).toUpperCase() + ", V" + Integer.toHexString(y).toUpperCase() + ", 0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(n).toUpperCase());
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             int[] sprite = new int[n];
             int count = 0;
             for (int i = addressRegisterI; i < (addressRegisterI + n);) {
@@ -944,10 +821,6 @@ public String stack() {
             int place = opCode & 0x0FFF;
             int x = place >> 8;
 
-            if (dissambler) {
-                actualLine = "ld hf, V" + Integer.toHexString(x).toUpperCase();
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             addressRegisterI = MemoryMap.giveSAdressFor(dataRegister.V[x]);
             return;
         }
@@ -956,10 +829,6 @@ public String stack() {
             int place = opCode & 0x0FFF;
             int x = place >> 8;
 
-            if (dissambler) {
-                actualLine = "ld r,V" + Integer.toHexString(x).toUpperCase();
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             for (int i = 0; i <= x; i++) {
                 hp48[i] = dataRegister.V[i];
             }
@@ -970,16 +839,11 @@ public String stack() {
             int place = opCode & 0x0FFF;
             int x = place >> 8;
 
-            if (dissambler) {
-                actualLine = "ld V" + Integer.toHexString(x).toUpperCase() + " ,R";
-                actualLine = "0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(oldPc).toUpperCase()) + ":\t " + actualLine;
-            }
             for (int i = 0; i <= x; i++) {
                 dataRegister.V[i] = hp48[i];
             }
             return;
         }
-
 
         actualLine = "";
         log.debug("unimplemented opcode = 0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(opCode).toUpperCase()));
