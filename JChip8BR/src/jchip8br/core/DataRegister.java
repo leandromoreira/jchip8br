@@ -29,4 +29,11 @@ public class DataRegister {
 					+ V[0xB] + "<br/>,VC=" + V[0xC] + "" + ",VD=" + V[0xD] + ",VE=" + V[0xE]
 					+ ",VF=" + V[0xF] + "}";
 		}
+
+                public void Clear() {
+                    //for (int reg : V)
+                    for (int i=0;i<V.length;i++)
+                        V[i] = 0;
+
+                }
 }

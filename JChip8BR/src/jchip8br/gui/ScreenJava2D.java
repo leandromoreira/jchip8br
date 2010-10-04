@@ -26,8 +26,10 @@ import jchip8br.control.Controller;
 public class ScreenJava2D extends javax.swing.JFrame {
 
     /** Creates new form ScreenJava2D */
-    public ScreenJava2D() {
+    public ScreenJava2D(int width, int height) {
+        this.setLocation(1000, 10);
         initComponents();
+        this.setSize(width, height);
     }
 
     /** This method is called from within the constructor to
@@ -99,7 +101,7 @@ public class ScreenJava2D extends javax.swing.JFrame {
         java.awt.EventQueue.invokeLater(new Runnable() {
             @Override
             public void run() {
-                new ScreenJava2D().setVisible(true);
+                new ScreenJava2D(100,100).setVisible(true);
             }
         });
     }

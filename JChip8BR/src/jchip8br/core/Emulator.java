@@ -18,6 +18,12 @@ package jchip8br.core;
 
 import java.awt.Graphics;
 import java.nio.ByteBuffer;
+import java.text.BreakIterator;
+import java.util.AbstractList;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Vector;
 import jchip8br.util.Logger;
 import jchip8br.util.LoggerManager;
 import jchip8br.video.Engine;
@@ -27,12 +33,49 @@ import jchip8br.video.Engine;
  */
 public class Emulator implements Runnable {
 
+
     private Processor cpu;
     private static boolean paused = false;
     private static boolean stopped = false;
     private static Engine video;
     private static Logger log = LoggerManager.getEmulatorLogger();
-    private static int numberOfInstructions = 750;
+    private static int numberOfInstructions = 5000;//750;
+    private static ArrayList<Breakpoint> breakpoints = new ArrayList<Breakpoint>();
+
+    public static boolean ToggleBreakpoint(int address)
+    {
+        int listSize = breakpoints.size();
+        for(int i=0;i<listSize;i++)
+            if(breakpoints.get(i).isAddress(address))
+            {
+                //breakpoints.get(i).Highlighter();
+                breakpoints.remove(i);
+                return false;
+            }
+        breakpoints.add(new Breakpoint(address));
+        return true;
+    }
+    public static boolean hasBreakpoint(int address)
+    {
+        for (Iterator<Breakpoint> it = breakpoints.iterator(); it.hasNext();)
+        {
+            Breakpoint breakpoint = it.next();
+            if(breakpoint.isAddress(address))
+                   return true;
+        }
+        return false;
+    }
+
+     public static Breakpoint GetBreakpoint(int address)
+     {
+        for (Iterator<Breakpoint> it = breakpoints.iterator(); it.hasNext();)
+        {
+            Breakpoint breakpoint = it.next();
+            if(breakpoint.isAddress(address))
+                   return breakpoint;
+        }
+        return null;
+    }
 
     public static void setSpeed(int newSpeed) {
         numberOfInstructions = newSpeed * 5;
@@ -49,9 +92,25 @@ public class Emulator implements Runnable {
         return cpu.getMemory().getACopy();
     }
 
-    public void reset() {
+    public void reset() throws InterruptedException {
         log.debug("reseting Chip8");
-        cpu.reset();
+        stop();
+        cpu.reset(true);
+        Thread.sleep(500);
+        ClearScreen();
+    }
+
+    public void ClearScreen()
+    {
+        video.clearScreen();
+        video.drawFrame();
+    }
+
+    public void resetWithoutMemClear() {
+        log.debug("resetting Chip8 without memory clear");
+        video.clearScreen();
+        stop();
+        cpu.reset(false);
     }
 
     public void fillMemory(ByteBuffer rom, long size) {
@@ -70,15 +129,15 @@ public class Emulator implements Runnable {
         return cpu.getMemory().getProgram();
     }
 
-    public void step() {
-        cpu.step();
-        if (cpu.delayTimerDT != 0x00) {
-            cpu.delayTimerDT -= 0x01;
-        }
-        if (cpu.soundTimerST != 0x00) {
-            playSound();
-            cpu.soundTimerST -= 0x01;
-        }
+    public void step() {      
+            cpu.step();
+            if (cpu.delayTimerDT != 0x00) {
+                cpu.delayTimerDT -= 0x01;
+            }
+            if (cpu.soundTimerST != 0x00) {
+                playSound();
+                cpu.soundTimerST -= 0x01;
+            }
     }
 
     public static void pause() {
@@ -103,7 +162,13 @@ public class Emulator implements Runnable {
         while (!stopped) {
             while (!paused) {
                 for (int i = 0; i < numberOfInstructions; i++) {
-                    cpu.step();
+                    if (!hasBreakpoint(cpu.programCounter))
+                        cpu.step();
+                    else
+                    {
+                        pause();
+                        return;
+                    }
                 }
                 if (cpu.delayTimerDT != 0x00) {
                     cpu.delayTimerDT -= 0x01;
@@ -124,6 +189,10 @@ public class Emulator implements Runnable {
         return cpu.stack();
     }
 
+    public Processor CPU() { return cpu; }
+
+    
+    /*
     public String DT() {
         return jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(cpu.delayTimerDT).toUpperCase());
     }
@@ -207,6 +276,7 @@ public class Emulator implements Runnable {
     public String VF() {
         return jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(cpu.dataRegister.V[0xF]).toUpperCase());
     }
+    */
 
     public static void setVideo(Engine vi) {
         video = vi;

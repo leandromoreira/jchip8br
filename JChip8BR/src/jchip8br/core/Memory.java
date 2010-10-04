@@ -18,6 +18,7 @@ package jchip8br.core;
 
 import jchip8br.util.Logger;
 import jchip8br.util.LoggerManager;
+import jchip8br.util.Util;
 
 /**
  * @author dreampeppers99
@@ -66,14 +67,20 @@ public class Memory {
     }
 
     private String memoryView(int init) {
+        int valuesPerRow = 16;
         StringBuilder sb = new StringBuilder();
         for (int i = init; i <= 0xFFF; i++) {
-            sb.append("0x" + jchip8br.util.Util.fillIfNeedsWith(4, "0", Integer.toHexString(i).toUpperCase()) + ":\t " +
-                    "[ 0x" + jchip8br.util.Util.fillIfNeedsWith(2, "0", Integer.toHexString(memory[i]).toUpperCase()) + "\t " +
-                    "0x" + jchip8br.util.Util.fillIfNeedsWith(2, "0", Integer.toHexString(memory[++i]).toUpperCase()) + "\t " +
-                    "0x" + jchip8br.util.Util.fillIfNeedsWith(2, "0", Integer.toHexString(memory[++i]).toUpperCase()) + "\t " +
-                    "0x" + jchip8br.util.Util.fillIfNeedsWith(2, "0", Integer.toHexString(memory[++i]).toUpperCase()) + " ]\n");
+        
+            if( (i%valuesPerRow) == 0)
+                sb.append((Util.FormatHexAdress(i,true) + "  "));
+
+            sb.append(Util.FormatHexValue(memory[i],false)+ " ");
+
+            if( (i%valuesPerRow) == (valuesPerRow-1))
+                sb.append("\n");
         }
         return sb.toString();
     }
+
+   
 }

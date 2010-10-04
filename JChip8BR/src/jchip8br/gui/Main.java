@@ -17,6 +17,7 @@ along with JChip8BR.  If not, see <http://www.gnu.org/licenses/>.
 package jchip8br.gui;
 
 import java.awt.Color;
+import java.awt.Window;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -26,7 +27,11 @@ import java.nio.channels.FileChannel;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JFileChooser;
+import javax.swing.JTextField;
 import jchip8br.core.Emulator;
+import jchip8br.core.eAssemblerType;
+import jchip8br.core.eInstruction;
+import jchip8br.util.Util;
 import jchip8br.video.Engine;
 
 /**
@@ -37,9 +42,44 @@ public class Main extends javax.swing.JFrame {
     private Emulator emulator;
     private Thread emulatorThread;
 
+    private File lastFileSelected;
+
+    private static String fileToLoad;
+
     /** Creates new form Main */
     public Main() {
         initComponents();
+
+        eInstruction.SetAssemblerType(eAssemblerType.MichaelTorenWay);
+        if(!fileToLoad.isEmpty())
+            LoadFile(new File(fileToLoad));
+
+        refresh();
+    }
+
+    // sets state for the 4 debug/execute mode changes button to suit the
+    // currently selected state
+    public void SetButtonStates(boolean paused, boolean stopped)
+    {
+        //jBtnPause , only possible in RUN
+        //jBtnStop  , only possible in RUN
+        if(!paused)
+        {
+            jBtnPause.setEnabled(true);
+            jBtnStop.setEnabled(true);
+            jBtnRun.setEnabled(false);
+            jBtnStep.setEnabled(false);
+        }
+        else
+        {
+            jBtnPause.setEnabled(false);
+            jBtnStop.setEnabled(false);
+            jBtnRun.setEnabled(true);
+            jBtnStep.setEnabled(true);
+        }
+        
+        //jBtnRun   , only possible when stopped/pause , should work as Continue
+        //jBtnStep  , only possible when in PAUSE
     }
 
     private Color getColor(String color) {
@@ -145,6 +185,7 @@ public class Main extends javax.swing.JFrame {
         jBtnStop = new javax.swing.JButton();
         jBtnRefresh = new javax.swing.JButton();
         jBtnShowAssembler = new javax.swing.JButton();
+        jBtnReset = new javax.swing.JButton();
         jInternalConfiguration = new javax.swing.JInternalFrame();
         jSliderSpeed = new javax.swing.JSlider();
         jLabel24 = new javax.swing.JLabel();
@@ -214,6 +255,11 @@ public class Main extends javax.swing.JFrame {
         jTxtPC.setForeground(new java.awt.Color(0, 255, 0));
         jTxtPC.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         jTxtPC.setText("0x000");
+        jTxtPC.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTxtPCActionPerformed(evt);
+            }
+        });
 
         jLabel2.setFont(new java.awt.Font("Arial", 0, 12));
         jLabel2.setForeground(new java.awt.Color(0, 0, 153));
@@ -224,6 +270,11 @@ public class Main extends javax.swing.JFrame {
         jTxtSP.setForeground(new java.awt.Color(0, 255, 0));
         jTxtSP.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         jTxtSP.setText("0x000");
+        jTxtSP.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTxtSPActionPerformed(evt);
+            }
+        });
 
         jLabel3.setFont(new java.awt.Font("Arial", 0, 12));
         jLabel3.setForeground(new java.awt.Color(0, 0, 153));
@@ -252,6 +303,12 @@ public class Main extends javax.swing.JFrame {
         jTxtV0.setForeground(new java.awt.Color(0, 255, 0));
         jTxtV0.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         jTxtV0.setText("0x000");
+        jTxtV0.setToolTipText("0");
+        jTxtV0.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTxtVRegActionPerformed(evt);
+            }
+        });
 
         jLabel6.setForeground(new java.awt.Color(0, 0, 153));
         jLabel6.setText("V3:");
@@ -261,9 +318,10 @@ public class Main extends javax.swing.JFrame {
         jTxtV3.setForeground(new java.awt.Color(0, 255, 0));
         jTxtV3.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         jTxtV3.setText("0x000");
+        jTxtV3.setToolTipText("3");
         jTxtV3.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jTxtV3ActionPerformed(evt);
+                jTxtVRegActionPerformed(evt);
             }
         });
 
@@ -275,6 +333,12 @@ public class Main extends javax.swing.JFrame {
         jTxtV6.setForeground(new java.awt.Color(0, 255, 0));
         jTxtV6.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         jTxtV6.setText("0x000");
+        jTxtV6.setToolTipText("6");
+        jTxtV6.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTxtVRegActionPerformed(evt);
+            }
+        });
 
         jLabel8.setForeground(new java.awt.Color(0, 0, 153));
         jLabel8.setText("V9:");
@@ -284,6 +348,12 @@ public class Main extends javax.swing.JFrame {
         jTxtV9.setForeground(new java.awt.Color(0, 255, 0));
         jTxtV9.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         jTxtV9.setText("0x000");
+        jTxtV9.setToolTipText("9");
+        jTxtV9.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTxtVRegActionPerformed(evt);
+            }
+        });
 
         jLabel9.setForeground(new java.awt.Color(0, 0, 153));
         jLabel9.setText("VC:");
@@ -293,6 +363,12 @@ public class Main extends javax.swing.JFrame {
         jTxtVC.setForeground(new java.awt.Color(0, 255, 0));
         jTxtVC.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         jTxtVC.setText("0x000");
+        jTxtVC.setToolTipText("12");
+        jTxtVC.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTxtVRegActionPerformed(evt);
+            }
+        });
 
         jLabel10.setForeground(new java.awt.Color(0, 0, 153));
         jLabel10.setText("V1:");
@@ -302,6 +378,12 @@ public class Main extends javax.swing.JFrame {
         jTxtV1.setForeground(new java.awt.Color(0, 255, 0));
         jTxtV1.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         jTxtV1.setText("0x000");
+        jTxtV1.setToolTipText("1");
+        jTxtV1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTxtVRegActionPerformed(evt);
+            }
+        });
 
         jLabel11.setForeground(new java.awt.Color(0, 0, 153));
         jLabel11.setText("V4:");
@@ -311,9 +393,10 @@ public class Main extends javax.swing.JFrame {
         jTxtV4.setForeground(new java.awt.Color(0, 255, 0));
         jTxtV4.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         jTxtV4.setText("0x000");
+        jTxtV4.setToolTipText("4");
         jTxtV4.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jTxtV4ActionPerformed(evt);
+                jTxtVRegActionPerformed(evt);
             }
         });
 
@@ -325,6 +408,12 @@ public class Main extends javax.swing.JFrame {
         jTxtV7.setForeground(new java.awt.Color(0, 255, 0));
         jTxtV7.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         jTxtV7.setText("0x000");
+        jTxtV7.setToolTipText("7");
+        jTxtV7.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTxtVRegActionPerformed(evt);
+            }
+        });
 
         jLabel13.setForeground(new java.awt.Color(0, 0, 153));
         jLabel13.setText("VA:");
@@ -334,6 +423,12 @@ public class Main extends javax.swing.JFrame {
         jTxtVA.setForeground(new java.awt.Color(0, 255, 0));
         jTxtVA.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         jTxtVA.setText("0x000");
+        jTxtVA.setToolTipText("10");
+        jTxtVA.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTxtVRegActionPerformed(evt);
+            }
+        });
 
         jLabel14.setForeground(new java.awt.Color(0, 0, 153));
         jLabel14.setText("VD:");
@@ -343,6 +438,12 @@ public class Main extends javax.swing.JFrame {
         jTxtVD.setForeground(new java.awt.Color(0, 255, 0));
         jTxtVD.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         jTxtVD.setText("0x000");
+        jTxtVD.setToolTipText("13");
+        jTxtVD.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTxtVRegActionPerformed(evt);
+            }
+        });
 
         jLabel15.setForeground(new java.awt.Color(0, 0, 153));
         jLabel15.setText("V2:");
@@ -352,6 +453,12 @@ public class Main extends javax.swing.JFrame {
         jTxtV2.setForeground(new java.awt.Color(0, 255, 0));
         jTxtV2.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         jTxtV2.setText("0x000");
+        jTxtV2.setToolTipText("2");
+        jTxtV2.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTxtVRegActionPerformed(evt);
+            }
+        });
 
         jLabel16.setForeground(new java.awt.Color(0, 0, 153));
         jLabel16.setText("V5:");
@@ -361,6 +468,12 @@ public class Main extends javax.swing.JFrame {
         jTxtV5.setForeground(new java.awt.Color(0, 255, 0));
         jTxtV5.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         jTxtV5.setText("0x000");
+        jTxtV5.setToolTipText("5");
+        jTxtV5.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTxtVRegActionPerformed(evt);
+            }
+        });
 
         jLabel17.setForeground(new java.awt.Color(0, 0, 153));
         jLabel17.setText("V8:");
@@ -370,6 +483,12 @@ public class Main extends javax.swing.JFrame {
         jTxtV8.setForeground(new java.awt.Color(0, 255, 0));
         jTxtV8.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         jTxtV8.setText("0x000");
+        jTxtV8.setToolTipText("8");
+        jTxtV8.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTxtVRegActionPerformed(evt);
+            }
+        });
 
         jLabel18.setForeground(new java.awt.Color(0, 0, 153));
         jLabel18.setText("VB:");
@@ -379,6 +498,12 @@ public class Main extends javax.swing.JFrame {
         jTxtVB.setForeground(new java.awt.Color(0, 255, 0));
         jTxtVB.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         jTxtVB.setText("0x000");
+        jTxtVB.setToolTipText("11");
+        jTxtVB.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTxtVRegActionPerformed(evt);
+            }
+        });
 
         jLabel20.setForeground(new java.awt.Color(0, 0, 153));
         jLabel20.setText("VE:");
@@ -388,6 +513,12 @@ public class Main extends javax.swing.JFrame {
         jTxtVE.setForeground(new java.awt.Color(0, 255, 0));
         jTxtVE.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         jTxtVE.setText("0x000");
+        jTxtVE.setToolTipText("14");
+        jTxtVE.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTxtVRegActionPerformed(evt);
+            }
+        });
 
         jLabel21.setForeground(new java.awt.Color(0, 0, 153));
         jLabel21.setText("VF:");
@@ -397,16 +528,24 @@ public class Main extends javax.swing.JFrame {
         jTxtVF.setForeground(new java.awt.Color(0, 255, 0));
         jTxtVF.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         jTxtVF.setText("0x000");
+        jTxtVF.setToolTipText("15");
+        jTxtVF.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTxtVRegActionPerformed(evt);
+            }
+        });
 
         jLabel19.setFont(new java.awt.Font("Arial", 0, 12));
         jLabel19.setForeground(new java.awt.Color(0, 0, 153));
         jLabel19.setText("Stack");
 
         jScrollPane3.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        jScrollPane3.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
+        jScrollPane3.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
 
         jTxtStack.setBackground(new java.awt.Color(0, 0, 0));
         jTxtStack.setColumns(20);
+        jTxtStack.setEditable(false);
+        jTxtStack.setFont(new java.awt.Font("Arial", 0, 10));
         jTxtStack.setForeground(new java.awt.Color(51, 255, 0));
         jTxtStack.setRows(16);
         jTxtStack.setText("01:0x000\n02:0x000\n03:0x000\n04:0x000\n05:0x000\n06:0x000\n07:0x000\n08:0x000\n09:0x000\n10:0x000\n11:0x000\n12:0x000\n13:0x000\n14:0x000\n15:0x000\n16:0x000");
@@ -417,6 +556,11 @@ public class Main extends javax.swing.JFrame {
         jTxtDT.setForeground(new java.awt.Color(0, 255, 0));
         jTxtDT.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         jTxtDT.setText("0x000");
+        jTxtDT.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTxtDTActionPerformed(evt);
+            }
+        });
 
         jLabel22.setForeground(new java.awt.Color(0, 0, 153));
         jLabel22.setText("DT:");
@@ -426,6 +570,11 @@ public class Main extends javax.swing.JFrame {
         jTxtST.setForeground(new java.awt.Color(0, 255, 0));
         jTxtST.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         jTxtST.setText("0x000");
+        jTxtST.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTxtSTActionPerformed(evt);
+            }
+        });
 
         jLabel23.setForeground(new java.awt.Color(0, 0, 153));
         jLabel23.setText("ST:");
@@ -438,17 +587,17 @@ public class Main extends javax.swing.JFrame {
                 .addContainerGap()
                 .addGroup(jInternalDebugRegisterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(jInternalDebugRegisterLayout.createSequentialGroup()
-                        .addComponent(jLabel1)
+                        .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 20, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jTxtPC, javax.swing.GroupLayout.PREFERRED_SIZE, 50, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(jTxtPC, javax.swing.GroupLayout.PREFERRED_SIZE, 62, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(jLabel2)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jTxtSP, javax.swing.GroupLayout.DEFAULT_SIZE, 79, Short.MAX_VALUE)
+                        .addComponent(jTxtSP, javax.swing.GroupLayout.PREFERRED_SIZE, 68, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(jLabel3)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(jTxtI, javax.swing.GroupLayout.PREFERRED_SIZE, 45, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(jLabel3, javax.swing.GroupLayout.PREFERRED_SIZE, 14, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(2, 2, 2)
+                        .addComponent(jTxtI, javax.swing.GroupLayout.DEFAULT_SIZE, 46, Short.MAX_VALUE)
                         .addGap(52, 52, 52)
                         .addComponent(jLabel19)
                         .addGap(57, 57, 57))
@@ -460,33 +609,33 @@ public class Main extends javax.swing.JFrame {
                                     .addGroup(javax.swing.GroupLayout.Alignment.LEADING, jInternalDebugRegisterLayout.createSequentialGroup()
                                         .addComponent(jLabel9)
                                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                        .addComponent(jTxtVC, javax.swing.GroupLayout.DEFAULT_SIZE, 59, Short.MAX_VALUE))
+                                        .addComponent(jTxtVC, javax.swing.GroupLayout.DEFAULT_SIZE, 60, Short.MAX_VALUE))
                                     .addGroup(javax.swing.GroupLayout.Alignment.LEADING, jInternalDebugRegisterLayout.createSequentialGroup()
                                         .addComponent(jLabel8)
                                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                        .addComponent(jTxtV9, javax.swing.GroupLayout.DEFAULT_SIZE, 60, Short.MAX_VALUE))
+                                        .addComponent(jTxtV9, javax.swing.GroupLayout.DEFAULT_SIZE, 61, Short.MAX_VALUE))
                                     .addGroup(javax.swing.GroupLayout.Alignment.LEADING, jInternalDebugRegisterLayout.createSequentialGroup()
                                         .addComponent(jLabel5)
                                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                        .addComponent(jTxtV0, javax.swing.GroupLayout.DEFAULT_SIZE, 60, Short.MAX_VALUE))
+                                        .addComponent(jTxtV0, javax.swing.GroupLayout.DEFAULT_SIZE, 61, Short.MAX_VALUE))
                                     .addGroup(javax.swing.GroupLayout.Alignment.LEADING, jInternalDebugRegisterLayout.createSequentialGroup()
                                         .addComponent(jLabel7)
                                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                        .addComponent(jTxtV6, javax.swing.GroupLayout.DEFAULT_SIZE, 60, Short.MAX_VALUE))
+                                        .addComponent(jTxtV6, javax.swing.GroupLayout.DEFAULT_SIZE, 61, Short.MAX_VALUE))
                                     .addGroup(javax.swing.GroupLayout.Alignment.LEADING, jInternalDebugRegisterLayout.createSequentialGroup()
                                         .addComponent(jLabel6)
                                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                        .addComponent(jTxtV3, javax.swing.GroupLayout.DEFAULT_SIZE, 60, Short.MAX_VALUE)))
+                                        .addComponent(jTxtV3, javax.swing.GroupLayout.DEFAULT_SIZE, 61, Short.MAX_VALUE)))
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addGroup(jInternalDebugRegisterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jInternalDebugRegisterLayout.createSequentialGroup()
                                         .addComponent(jLabel13)
                                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                        .addComponent(jTxtVA, javax.swing.GroupLayout.DEFAULT_SIZE, 70, Short.MAX_VALUE))
+                                        .addComponent(jTxtVA, javax.swing.GroupLayout.DEFAULT_SIZE, 71, Short.MAX_VALUE))
                                     .addGroup(jInternalDebugRegisterLayout.createSequentialGroup()
                                         .addComponent(jLabel10)
                                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                        .addComponent(jTxtV1, javax.swing.GroupLayout.DEFAULT_SIZE, 71, Short.MAX_VALUE))
+                                        .addComponent(jTxtV1, javax.swing.GroupLayout.DEFAULT_SIZE, 72, Short.MAX_VALUE))
                                     .addGroup(jInternalDebugRegisterLayout.createSequentialGroup()
                                         .addComponent(jLabel11)
                                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -494,15 +643,15 @@ public class Main extends javax.swing.JFrame {
                                     .addGroup(jInternalDebugRegisterLayout.createSequentialGroup()
                                         .addComponent(jLabel12)
                                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                        .addComponent(jTxtV7, javax.swing.GroupLayout.DEFAULT_SIZE, 71, Short.MAX_VALUE))
+                                        .addComponent(jTxtV7, javax.swing.GroupLayout.DEFAULT_SIZE, 72, Short.MAX_VALUE))
                                     .addGroup(jInternalDebugRegisterLayout.createSequentialGroup()
                                         .addGroup(jInternalDebugRegisterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                                             .addComponent(jLabel21)
                                             .addComponent(jLabel14))
                                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                         .addGroup(jInternalDebugRegisterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                            .addComponent(jTxtVF, javax.swing.GroupLayout.DEFAULT_SIZE, 70, Short.MAX_VALUE)
-                                            .addComponent(jTxtVD, javax.swing.GroupLayout.DEFAULT_SIZE, 70, Short.MAX_VALUE))))
+                                            .addComponent(jTxtVF, javax.swing.GroupLayout.DEFAULT_SIZE, 71, Short.MAX_VALUE)
+                                            .addComponent(jTxtVD, javax.swing.GroupLayout.DEFAULT_SIZE, 71, Short.MAX_VALUE))))
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addGroup(jInternalDebugRegisterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                                     .addGroup(jInternalDebugRegisterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
@@ -530,7 +679,7 @@ public class Main extends javax.swing.JFrame {
                             .addGroup(jInternalDebugRegisterLayout.createSequentialGroup()
                                 .addComponent(jLabel22)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(jTxtDT, javax.swing.GroupLayout.DEFAULT_SIZE, 100, Short.MAX_VALUE)
+                                .addComponent(jTxtDT, javax.swing.GroupLayout.DEFAULT_SIZE, 102, Short.MAX_VALUE)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addComponent(jLabel23)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -542,18 +691,20 @@ public class Main extends javax.swing.JFrame {
         jInternalDebugRegisterLayout.setVerticalGroup(
             jInternalDebugRegisterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jInternalDebugRegisterLayout.createSequentialGroup()
-                .addGroup(jInternalDebugRegisterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel1)
-                    .addComponent(jTxtPC, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel2)
-                    .addComponent(jTxtSP, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel3)
-                    .addComponent(jTxtI, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel19))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addContainerGap(67, Short.MAX_VALUE)
+                .addGroup(jInternalDebugRegisterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addGroup(jInternalDebugRegisterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(jTxtSP, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(jLabel3)
+                        .addComponent(jTxtI, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(jLabel19)
+                        .addComponent(jLabel2))
+                    .addGroup(jInternalDebugRegisterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(jTxtPC, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(jLabel1)))
                 .addGroup(jInternalDebugRegisterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(jInternalDebugRegisterLayout.createSequentialGroup()
-                        .addGap(6, 6, 6)
+                        .addGap(23, 23, 23)
                         .addComponent(jLabel4)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(jInternalDebugRegisterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
@@ -601,12 +752,13 @@ public class Main extends javax.swing.JFrame {
                             .addComponent(jLabel21))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addGroup(jInternalDebugRegisterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                            .addComponent(jTxtDT, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(jLabel22)
                             .addComponent(jTxtST, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(jLabel23)))
-                    .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 212, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap())
+                            .addComponent(jLabel23)
+                            .addComponent(jTxtDT, javax.swing.GroupLayout.PREFERRED_SIZE, 19, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                    .addGroup(jInternalDebugRegisterLayout.createSequentialGroup()
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))))
         );
 
         jInternalDebugMemory.setClosable(true);
@@ -616,9 +768,12 @@ public class Main extends javax.swing.JFrame {
 
         jScrollPane1.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_ALWAYS);
         jScrollPane1.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
+        jScrollPane1.setHorizontalScrollBar(null);
 
         jTxtMemory.setBackground(new java.awt.Color(0, 0, 0));
         jTxtMemory.setColumns(20);
+        jTxtMemory.setEditable(false);
+        jTxtMemory.setFont(new java.awt.Font("SimSun-ExtB", 0, 13));
         jTxtMemory.setForeground(new java.awt.Color(51, 255, 102));
         jTxtMemory.setRows(5);
         jScrollPane1.setViewportView(jTxtMemory);
@@ -633,7 +788,7 @@ public class Main extends javax.swing.JFrame {
         );
         jInternalDebugMemoryLayout.setVerticalGroup(
             jInternalDebugMemoryLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 256, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 513, Short.MAX_VALUE)
         );
 
         jInternalDissambler.setClosable(true);
@@ -667,9 +822,11 @@ public class Main extends javax.swing.JFrame {
 
         jScrollPane2.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_ALWAYS);
         jScrollPane2.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
+        jScrollPane2.setHorizontalScrollBar(null);
 
         jTxtDissambler.setBackground(new java.awt.Color(0, 0, 0));
         jTxtDissambler.setColumns(20);
+        jTxtDissambler.setFont(new java.awt.Font("SimSun-ExtB", 0, 13));
         jTxtDissambler.setForeground(new java.awt.Color(51, 255, 0));
         jTxtDissambler.setRows(5);
         jScrollPane2.setViewportView(jTxtDissambler);
@@ -706,6 +863,14 @@ public class Main extends javax.swing.JFrame {
             }
         });
 
+        jBtnReset.setMnemonic('T');
+        jBtnReset.setText("Reset");
+        jBtnReset.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jBtnResetActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout jInternalDissamblerLayout = new javax.swing.GroupLayout(jInternalDissambler.getContentPane());
         jInternalDissambler.getContentPane().setLayout(jInternalDissamblerLayout);
         jInternalDissamblerLayout.setHorizontalGroup(
@@ -713,6 +878,7 @@ public class Main extends javax.swing.JFrame {
             .addGroup(jInternalDissamblerLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(jInternalDissamblerLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 381, Short.MAX_VALUE)
                     .addGroup(jInternalDissamblerLayout.createSequentialGroup()
                         .addComponent(jBtnRun)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -722,27 +888,32 @@ public class Main extends javax.swing.JFrame {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(jBtnStep)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jBtnReset))
+                    .addGroup(jInternalDissamblerLayout.createSequentialGroup()
+                        .addComponent(jBtnShowAssembler)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(jBtnClear)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jBtnRefresh))
-                    .addComponent(jBtnShowAssembler)
-                    .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 380, Short.MAX_VALUE))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(jBtnRefresh)))
                 .addContainerGap())
         );
         jInternalDissamblerLayout.setVerticalGroup(
             jInternalDissamblerLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jInternalDissamblerLayout.createSequentialGroup()
+                .addContainerGap()
                 .addGroup(jInternalDissamblerLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jBtnPause)
                     .addComponent(jBtnRun)
-                    .addComponent(jBtnClear)
-                    .addComponent(jBtnStep)
+                    .addComponent(jBtnPause)
                     .addComponent(jBtnStop)
-                    .addComponent(jBtnRefresh))
+                    .addComponent(jBtnStep)
+                    .addComponent(jBtnReset))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jBtnShowAssembler)
+                .addGroup(jInternalDissamblerLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jBtnClear)
+                    .addComponent(jBtnRefresh)
+                    .addComponent(jBtnShowAssembler))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 265, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 437, Short.MAX_VALUE)
                 .addContainerGap())
         );
 
@@ -754,7 +925,7 @@ public class Main extends javax.swing.JFrame {
 
         jSliderSpeed.setMaximum(1000);
         jSliderSpeed.setMinimum(1);
-        jSliderSpeed.setValue(500);
+        jSliderSpeed.setValue(1000);
 
         jLabel24.setFont(new java.awt.Font("Tahoma", 1, 11));
         jLabel24.setText("Speed   (MAX.                            MIN.)");
@@ -1089,12 +1260,12 @@ public class Main extends javax.swing.JFrame {
         jLabel28.setText("Controller Layout (still not config.)");
 
         jLabel46.setFont(new java.awt.Font("Tahoma", 1, 11));
-        jLabel46.setText("Just draw the scree at");
+        jLabel46.setText("Just draw the screen at");
 
         jTxtFrames.setFont(new java.awt.Font("Tahoma", 1, 11));
         jTxtFrames.setForeground(new java.awt.Color(0, 0, 153));
         jTxtFrames.setHorizontalAlignment(javax.swing.JTextField.CENTER);
-        jTxtFrames.setText("3");
+        jTxtFrames.setText("1");
         jTxtFrames.addKeyListener(new java.awt.event.KeyAdapter() {
             public void keyPressed(java.awt.event.KeyEvent evt) {
                 jTxtFramesKeyPressed(evt);
@@ -1227,7 +1398,7 @@ public class Main extends javax.swing.JFrame {
                         .addComponent(jTxtFrames, javax.swing.GroupLayout.PREFERRED_SIZE, 47, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(jLabel47)))
-                .addContainerGap(11, Short.MAX_VALUE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         jInternalConfigurationLayout.setVerticalGroup(
             jInternalConfigurationLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1313,7 +1484,7 @@ public class Main extends javax.swing.JFrame {
                     .addComponent(jLabel46)
                     .addComponent(jTxtFrames, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(jLabel47))
-                .addContainerGap(23, Short.MAX_VALUE))
+                .addContainerGap(59, Short.MAX_VALUE))
         );
 
         jMenu1.setText("File");
@@ -1334,57 +1505,59 @@ public class Main extends javax.swing.JFrame {
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+            .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(jInternalDebugRegister)
-                    .addComponent(jInternalDissambler, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jInternalConfiguration)
-                    .addComponent(jInternalDebugMemory, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                        .addComponent(jInternalDebugRegister)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jInternalConfiguration))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                        .addComponent(jInternalDissambler)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jInternalDebugMemory)))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, layout.createSequentialGroup()
-                        .addComponent(jInternalConfiguration, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jInternalDebugMemory, javax.swing.GroupLayout.PREFERRED_SIZE, 291, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, layout.createSequentialGroup()
-                        .addComponent(jInternalDebugRegister, javax.swing.GroupLayout.PREFERRED_SIZE, 277, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jInternalDissambler, javax.swing.GroupLayout.PREFERRED_SIZE, 367, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addContainerGap()
+                        .addComponent(jInternalDebugRegister, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(jInternalConfiguration, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jInternalDissambler, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jInternalDebugMemory))
+                .addContainerGap())
         );
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
     private void refresh() {
-        jTxtI.setText("0x" + emulator.I());
-        jTxtPC.setText("0x" + emulator.PC());
-        jTxtSP.setText("0x" + emulator.SP());
-        jTxtV0.setText("0x" + emulator.V0());
-        jTxtV1.setText("0x" + emulator.V1());
-        jTxtV2.setText("0x" + emulator.V2());
-        jTxtV3.setText("0x" + emulator.V3());
-        jTxtV4.setText("0x" + emulator.V4());
-        jTxtV5.setText("0x" + emulator.V5());
-        jTxtV6.setText("0x" + emulator.V6());
-        jTxtV7.setText("0x" + emulator.V7());
-        jTxtV8.setText("0x" + emulator.V8());
-        jTxtV9.setText("0x" + emulator.V9());
-        jTxtVA.setText("0x" + emulator.VA());
-        jTxtVB.setText("0x" + emulator.VB());
-        jTxtVC.setText("0x" + emulator.VC());
-        jTxtVD.setText("0x" + emulator.VD());
-        jTxtVE.setText("0x" + emulator.VE());
-        jTxtVF.setText("0x" + emulator.VF());
-        jTxtDT.setText("0x" + emulator.DT());
-        jTxtST.setText("0x" + emulator.ST());
+        jTxtI.setText(Util.FormatHexAdress( emulator.CPU().addressRegisterI, true));
+        jTxtPC.setText(Util.FormatHexAdress( emulator.CPU().programCounter, true));
+        jTxtSP.setText(Util.FormatHexNumber(1, emulator.CPU().stackPointer, true));
+        jTxtV0.setText(Util.FormatHexValue( emulator.CPU().dataRegister.V[0], true));
+        jTxtV1.setText(Util.FormatHexValue( emulator.CPU().dataRegister.V[1], true));
+        jTxtV2.setText(Util.FormatHexValue( emulator.CPU().dataRegister.V[2], true));
+        jTxtV3.setText(Util.FormatHexValue( emulator.CPU().dataRegister.V[3], true));
+        jTxtV4.setText(Util.FormatHexValue( emulator.CPU().dataRegister.V[4], true));
+        jTxtV5.setText(Util.FormatHexValue( emulator.CPU().dataRegister.V[5], true));
+        jTxtV6.setText(Util.FormatHexValue( emulator.CPU().dataRegister.V[6], true));
+        jTxtV7.setText(Util.FormatHexValue( emulator.CPU().dataRegister.V[7], true));
+        jTxtV8.setText(Util.FormatHexValue( emulator.CPU().dataRegister.V[8], true));
+        jTxtV9.setText(Util.FormatHexValue( emulator.CPU().dataRegister.V[9], true));
+        jTxtVA.setText(Util.FormatHexValue( emulator.CPU().dataRegister.V[10], true));
+        jTxtVB.setText(Util.FormatHexValue( emulator.CPU().dataRegister.V[11], true));
+        jTxtVC.setText(Util.FormatHexValue( emulator.CPU().dataRegister.V[12], true));
+        jTxtVD.setText(Util.FormatHexValue( emulator.CPU().dataRegister.V[13], true));
+        jTxtVE.setText(Util.FormatHexValue( emulator.CPU().dataRegister.V[14], true));
+        jTxtVF.setText(Util.FormatHexValue( emulator.CPU().dataRegister.V[15], true));
+        jTxtDT.setText(Util.FormatHexValue( emulator.CPU().delayTimerDT,true));
+        jTxtST.setText(Util.FormatHexValue( emulator.CPU().soundTimerST,true));
 
         jTxtMemory.setText(emulator.showProgramMemory());
         jTxtStack.setText(emulator.stack());
@@ -1416,17 +1589,14 @@ public class Main extends javax.swing.JFrame {
         jTxtDissambler.setText("");
 
 }//GEN-LAST:event_jBtnClearActionPerformed
-
-    private void jTxtV3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTxtV3ActionPerformed
-}//GEN-LAST:event_jTxtV3ActionPerformed
-    private ScreenJava2D scn = new ScreenJava2D();
+    private ScreenJava2D scn = new ScreenJava2D(500,500);
     private void jMenuItem2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jMenuItem2ActionPerformed
 
         if (scn != null) {
             scn.dispose();
         }
 
-        scn = new ScreenJava2D();
+        scn = new ScreenJava2D(500,500);
 
         if (emulatorThread != null) {
             try {
@@ -1439,12 +1609,63 @@ public class Main extends javax.swing.JFrame {
             }
         }
 
+        if (ChooseFile())
+        {
+            LoadFile(lastFileSelected);
+            refresh();
+            Emulator.stop();
+            Emulator.init();
+            emulatorThread = new Thread(emulator);
+        } 
+        else
+        {
+            return;
+        }
+}//GEN-LAST:event_jMenuItem2ActionPerformed
 
+    private void Restart()
+    {
+        if (emulatorThread != null) {
+            try {
+                Emulator.stop();
+                Thread.sleep(500);
+                Emulator.init();
+                emulatorThread = null;
+                //Thread.sleep(500);
+            } catch (InterruptedException ex) {
+                Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+        if (lastFileSelected != null)
+        {
+            LoadFile(lastFileSelected);
+            emulator.ClearScreen();
+            refresh();
+            Emulator.stop();
+            Emulator.init();
+            emulatorThread = new Thread(emulator);
+        }
+        else
+        {
+            return;
+        }
+    }
+
+    private boolean ChooseFile()
+    {
         final JFileChooser fc = makeJFileChooser();
         int returnVal = fc.showOpenDialog(this);
 
-        if (userChooseSomething(returnVal)) {
-            File file = fc.getSelectedFile();
+        boolean userHasChosenFile = userChooseSomething(returnVal);
+        if(userHasChosenFile)
+            lastFileSelected =  fc.getSelectedFile();
+
+        return userHasChosenFile;
+    }
+
+    private void LoadFile(File file)
+    {
             FileChannel roChannel;
             ByteBuffer readbuffer = null;
             try {
@@ -1460,45 +1681,62 @@ public class Main extends javax.swing.JFrame {
             scn.setVisible(true);
             emulator = new Emulator(scn.getJava2D());
             emulator.fillMemory(readbuffer, file.length());
-            refresh();
-            Emulator.stop();
-            Emulator.init();
-            emulatorThread = new Thread(emulator);
-        } else {
-            return;
-        }
-}//GEN-LAST:event_jMenuItem2ActionPerformed
+    }
 
     private void jTxtIActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTxtIActionPerformed
+        JTextField txtField = (JTextField)evt.getSource();
+        int newValue = Integer.parseInt(txtField.getText().substring(2),16);
+        emulator.CPU().addressRegisterI = (short)(newValue&0xfff);
+
+        refresh();
 }//GEN-LAST:event_jTxtIActionPerformed
 
-    private void jTxtV4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTxtV4ActionPerformed
-}//GEN-LAST:event_jTxtV4ActionPerformed
-
     private void jBtnRunActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jBtnRunActionPerformed
+        if(!fileToLoad.isEmpty())
+        {
+          LoadFile(new File(fileToLoad));
+        }
+
         if (emulatorThread == null) {
             emulatorThread = new Thread(emulator);
         }
         emulatorThread.start();
+        SetButtonStates(false,false);
 }//GEN-LAST:event_jBtnRunActionPerformed
 
     private void jBtnPauseActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jBtnPauseActionPerformed
         Emulator.pause();
+        SetButtonStates(true,true);
+        renewDisassemblerListing();
+        refresh(); // refreshes all registers and memory window
+       
 }//GEN-LAST:event_jBtnPauseActionPerformed
 
     private void jBtnStopActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jBtnStopActionPerformed
         Emulator.stop();
+        SetButtonStates(true,true);
 }//GEN-LAST:event_jBtnStopActionPerformed
 
     private void jBtnRefreshActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jBtnRefreshActionPerformed
-        String actualAssembler = emulator.showCurrentAssembler();
-        jTxtDissambler.setText("");
-        jTxtDissambler.setText(actualAssembler);
+        renewDisassemblerListing();
         refresh();
 }//GEN-LAST:event_jBtnRefreshActionPerformed
 
+    private void renewDisassemblerListing()
+    {
+        String actualAssembler = "";
+        if(emulator != null)
+            actualAssembler = emulator.showCurrentAssembler();
+
+        jTxtDissambler.setText("");
+        jTxtDissambler.setText(actualAssembler);
+    }
+
     private void jBtnShowAssemblerActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jBtnShowAssemblerActionPerformed
         WindowDisassembler dissambler = new WindowDisassembler();
+
+        //dissambler.addActionListener(new MultiHighlight(dissambler, "aeiouAEIOU"));
+        renewDisassemblerListing();
         dissambler.setEmulator(emulator);
         dissambler.setVisible(true);
 }//GEN-LAST:event_jBtnShowAssemblerActionPerformed
@@ -1608,8 +1846,14 @@ public class Main extends javax.swing.JFrame {
 
     private void jBtnApplyConfigurationActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jBtnApplyConfigurationActionPerformed
         Engine.background = getColor(jCboBackgroundColor.getSelectedItem().toString());
+        // resize Chip-8 output screen according to current selections.
+        int chosenSize =  Integer.valueOf(jCboScreenSize.getSelectedItem().toString().substring(0,1));
+        scn.dispose();
+        scn = new ScreenJava2D(31+(64*chosenSize), 52+(32*chosenSize));
+        
         scn.getJava2D().drawRect(0, 0, scn.getJPanelJava2D().getSize().width, scn.getJPanelJava2D().getSize().height);
         scn.getJava2D().fillRect(0, 0, scn.getJPanelJava2D().getSize().width, scn.getJPanelJava2D().getSize().height);
+        scn.setVisible(true);
         Engine.objects = getColor(jCboObjectsColor.getSelectedItem().toString());
         Engine.streetch = Integer.valueOf(jCboScreenSize.getSelectedItem().toString().substring(0, 1));
         Engine.pixelShape = jCboPixelShape.getSelectedItem().toString();
@@ -1642,9 +1886,61 @@ public class Main extends javax.swing.JFrame {
     private void jTxtFramesKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_jTxtFramesKeyReleased
 }//GEN-LAST:event_jTxtFramesKeyReleased
 
-    public static void main(String args[]) {
-        java.awt.EventQueue.invokeLater(new Runnable() {
+    private void jBtnResetActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jBtnResetActionPerformed
+        //emulator.resetWithoutMemClear();
 
+         if(!fileToLoad.isEmpty())
+            LoadFile(new File(fileToLoad));
+
+        refresh();
+        jTxtDissambler.setText("");
+        Restart();
+        SetButtonStates(true,true);
+    }//GEN-LAST:event_jBtnResetActionPerformed
+
+    private void jTxtVRegActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTxtVRegActionPerformed
+       JTextField txtField = (JTextField)evt.getSource();
+       int regNumber = Integer.parseInt(txtField.getToolTipText());
+       int newValue = Integer.parseInt(txtField.getText().substring(2),16);
+       emulator.CPU().dataRegister.V[regNumber] = (short)(newValue&0xff);
+       refresh();
+    }//GEN-LAST:event_jTxtVRegActionPerformed
+
+    private void jTxtSPActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTxtSPActionPerformed
+       JTextField txtField = (JTextField)evt.getSource();
+       int newValue = Integer.parseInt(txtField.getText().substring(2),16);
+       emulator.CPU().stackPointer = (short)(newValue&0xf);
+       refresh();
+    }//GEN-LAST:event_jTxtSPActionPerformed
+
+    private void jTxtPCActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTxtPCActionPerformed
+        JTextField txtField = (JTextField)evt.getSource();
+       int newValue = Integer.parseInt(txtField.getText().substring(2),16);
+       emulator.CPU().programCounter = (short)(newValue&0xfff);
+       refresh();
+    }//GEN-LAST:event_jTxtPCActionPerformed
+
+    private void jTxtDTActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTxtDTActionPerformed
+        JTextField txtField = (JTextField)evt.getSource();
+       int newValue = Integer.parseInt(txtField.getText().substring(2),16);
+       emulator.CPU().delayTimerDT = (short)(newValue&0xff);
+       refresh();
+    }//GEN-LAST:event_jTxtDTActionPerformed
+
+    private void jTxtSTActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTxtSTActionPerformed
+        JTextField txtField = (JTextField)evt.getSource();
+       int newValue = Integer.parseInt(txtField.getText().substring(2),16);
+       emulator.CPU().soundTimerST = (short)(newValue&0xff);
+       refresh();
+    }//GEN-LAST:event_jTxtSTActionPerformed
+
+   
+    public static void main(String[] args ) {
+        if (args.length == 1)
+        {
+            Main.fileToLoad = args[0];
+        }
+        java.awt.EventQueue.invokeLater(new Runnable() {
             @Override
             public void run() {
                 new Main().setVisible(true);
@@ -1657,6 +1953,7 @@ public class Main extends javax.swing.JFrame {
     private javax.swing.JButton jBtnClear;
     private javax.swing.JButton jBtnPause;
     private javax.swing.JButton jBtnRefresh;
+    private javax.swing.JButton jBtnReset;
     private javax.swing.JButton jBtnRun;
     private javax.swing.JButton jBtnShowAssembler;
     private javax.swing.JButton jBtnStep;
